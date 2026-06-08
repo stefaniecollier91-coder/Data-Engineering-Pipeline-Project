@@ -2,16 +2,16 @@
 Dash MVP: Flight Delays and Weather Impact Analysis at CVG
 Author: Stefanie Collier
 
-This app connects to PostgreSQL through POSTGRES_URL and reads the reporting
-view vw_monthly_flight_weather_summary. It provides KPI cards, interactive
-filters, and business visuals for monthly CVG flight performance and weather.
+This app matches the CVG Database Project Deliverables schema. It connects to
+PostgreSQL through POSTGRES_URL and reads vw_monthly_flight_weather_summary,
+which joins airport, date_month, flight_monthly_performance, and weather_daily.
 """
 
 import os
-from functools import lru_cache
+from datetime import datetime
 
 import dash
-from dash import Dash, Input, Output, dcc, html, dash_table
+from dash import Dash, Input, Output, State, dcc, html, dash_table
 import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
@@ -49,30 +49,29 @@ FROM vw_monthly_flight_weather_summary
 ORDER BY year_number, month_number;
 """
 
-# Small local fallback for screenshots only. For the assignment submission,
-# keep PostgreSQL configured so the app pulls live/refreshed database data.
+# Local fallback mirrors the uploaded initial_postgresql_load_script.sql sample.
+# Final grading should use PostgreSQL with ALLOW_SAMPLE_FALLBACK=false.
 SAMPLE_DATA = [
-    {"airport_code":"CVG","airport_name":"Cincinnati/Northern Kentucky International Airport","year_number":2025,"month_number":1,"month_name":"January","season":"Winter","flight_operations":3319,"on_time_arrivals":2460,"on_time_pct":74.12,"arrival_delays":700,"delayed_pct":18.31,"flight_cancelled":156,"cancelled_pct":4.70,"diverted_flights":3,"avg_temperature_f":32.2,"total_precipitation_inches":2.40,"total_snowfall_inches":3.10,"avg_wind_speed_mph":14.5,"severe_weather_days":9},
-    {"airport_code":"CVG","airport_name":"Cincinnati/Northern Kentucky International Airport","year_number":2025,"month_number":2,"month_name":"February","season":"Winter","flight_operations":3128,"on_time_arrivals":2337,"on_time_pct":74.71,"arrival_delays":739,"delayed_pct":20.50,"flight_cancelled":48,"cancelled_pct":1.53,"diverted_flights":4,"avg_temperature_f":35.9,"total_precipitation_inches":1.85,"total_snowfall_inches":1.20,"avg_wind_speed_mph":13.1,"severe_weather_days":7},
-    {"airport_code":"CVG","airport_name":"Cincinnati/Northern Kentucky International Airport","year_number":2025,"month_number":3,"month_name":"March","season":"Spring","flight_operations":3833,"on_time_arrivals":2918,"on_time_pct":76.13,"arrival_delays":865,"delayed_pct":19.20,"flight_cancelled":43,"cancelled_pct":1.12,"diverted_flights":7,"avg_temperature_f":45.0,"total_precipitation_inches":3.05,"total_snowfall_inches":0.40,"avg_wind_speed_mph":15.8,"severe_weather_days":8},
-    {"airport_code":"CVG","airport_name":"Cincinnati/Northern Kentucky International Airport","year_number":2025,"month_number":4,"month_name":"April","season":"Spring","flight_operations":3704,"on_time_arrivals":2776,"on_time_pct":74.95,"arrival_delays":890,"delayed_pct":19.36,"flight_cancelled":32,"cancelled_pct":0.86,"diverted_flights":6,"avg_temperature_f":57.1,"total_precipitation_inches":3.30,"total_snowfall_inches":0.00,"avg_wind_speed_mph":14.2,"severe_weather_days":9},
-    {"airport_code":"CVG","airport_name":"Cincinnati/Northern Kentucky International Airport","year_number":2025,"month_number":5,"month_name":"May","season":"Spring","flight_operations":3745,"on_time_arrivals":2699,"on_time_pct":72.07,"arrival_delays":998,"delayed_pct":23.26,"flight_cancelled":44,"cancelled_pct":1.17,"diverted_flights":4,"avg_temperature_f":66.5,"total_precipitation_inches":4.15,"total_snowfall_inches":0.00,"avg_wind_speed_mph":12.8,"severe_weather_days":10},
-    {"airport_code":"CVG","airport_name":"Cincinnati/Northern Kentucky International Airport","year_number":2025,"month_number":6,"month_name":"June","season":"Summer","flight_operations":3828,"on_time_arrivals":2503,"on_time_pct":65.39,"arrival_delays":1229,"delayed_pct":27.70,"flight_cancelled":85,"cancelled_pct":2.22,"diverted_flights":11,"avg_temperature_f":75.4,"total_precipitation_inches":4.90,"total_snowfall_inches":0.00,"avg_wind_speed_mph":11.6,"severe_weather_days":12},
-    {"airport_code":"CVG","airport_name":"Cincinnati/Northern Kentucky International Airport","year_number":2025,"month_number":7,"month_name":"July","season":"Summer","flight_operations":3939,"on_time_arrivals":2471,"on_time_pct":62.73,"arrival_delays":1322,"delayed_pct":27.72,"flight_cancelled":128,"cancelled_pct":3.25,"diverted_flights":18,"avg_temperature_f":79.3,"total_precipitation_inches":5.20,"total_snowfall_inches":0.00,"avg_wind_speed_mph":10.9,"severe_weather_days":13},
+    {"airport_code":"CVG","airport_name":"Cincinnati/Northern Kentucky International Airport","year_number":2023,"month_number":1,"month_name":"January","season":"Winter","flight_operations":3319,"on_time_arrivals":2460,"on_time_pct":74.12,"arrival_delays":700,"delayed_pct":18.31,"flight_cancelled":156,"cancelled_pct":4.70,"diverted_flights":3,"avg_temperature_f":None,"total_precipitation_inches":0,"total_snowfall_inches":0,"avg_wind_speed_mph":None,"severe_weather_days":0},
+    {"airport_code":"CVG","airport_name":"Cincinnati/Northern Kentucky International Airport","year_number":2023,"month_number":2,"month_name":"February","season":"Winter","flight_operations":3128,"on_time_arrivals":2337,"on_time_pct":74.71,"arrival_delays":739,"delayed_pct":20.50,"flight_cancelled":48,"cancelled_pct":1.53,"diverted_flights":4,"avg_temperature_f":None,"total_precipitation_inches":0,"total_snowfall_inches":0,"avg_wind_speed_mph":None,"severe_weather_days":0},
+    {"airport_code":"CVG","airport_name":"Cincinnati/Northern Kentucky International Airport","year_number":2023,"month_number":3,"month_name":"March","season":"Spring","flight_operations":3833,"on_time_arrivals":2918,"on_time_pct":76.13,"arrival_delays":865,"delayed_pct":19.20,"flight_cancelled":43,"cancelled_pct":1.12,"diverted_flights":7,"avg_temperature_f":None,"total_precipitation_inches":0,"total_snowfall_inches":0,"avg_wind_speed_mph":None,"severe_weather_days":0},
+    {"airport_code":"CVG","airport_name":"Cincinnati/Northern Kentucky International Airport","year_number":2023,"month_number":4,"month_name":"April","season":"Spring","flight_operations":3704,"on_time_arrivals":2776,"on_time_pct":74.95,"arrival_delays":890,"delayed_pct":19.36,"flight_cancelled":32,"cancelled_pct":0.86,"diverted_flights":6,"avg_temperature_f":None,"total_precipitation_inches":0,"total_snowfall_inches":0,"avg_wind_speed_mph":None,"severe_weather_days":0},
+    {"airport_code":"CVG","airport_name":"Cincinnati/Northern Kentucky International Airport","year_number":2023,"month_number":5,"month_name":"May","season":"Spring","flight_operations":3745,"on_time_arrivals":2699,"on_time_pct":72.07,"arrival_delays":998,"delayed_pct":23.26,"flight_cancelled":44,"cancelled_pct":1.17,"diverted_flights":4,"avg_temperature_f":None,"total_precipitation_inches":0,"total_snowfall_inches":0,"avg_wind_speed_mph":None,"severe_weather_days":0},
+    {"airport_code":"CVG","airport_name":"Cincinnati/Northern Kentucky International Airport","year_number":2023,"month_number":6,"month_name":"June","season":"Summer","flight_operations":3828,"on_time_arrivals":2503,"on_time_pct":65.39,"arrival_delays":1229,"delayed_pct":27.70,"flight_cancelled":85,"cancelled_pct":2.22,"diverted_flights":11,"avg_temperature_f":None,"total_precipitation_inches":0,"total_snowfall_inches":0,"avg_wind_speed_mph":None,"severe_weather_days":0},
+    {"airport_code":"CVG","airport_name":"Cincinnati/Northern Kentucky International Airport","year_number":2023,"month_number":7,"month_name":"July","season":"Summer","flight_operations":3939,"on_time_arrivals":2471,"on_time_pct":62.73,"arrival_delays":1322,"delayed_pct":27.72,"flight_cancelled":128,"cancelled_pct":3.25,"diverted_flights":18,"avg_temperature_f":None,"total_precipitation_inches":0,"total_snowfall_inches":0,"avg_wind_speed_mph":None,"severe_weather_days":0},
 ]
 
 
-def _get_engine():
+def get_engine():
     if not POSTGRES_URL:
         raise RuntimeError("POSTGRES_URL is not set. Add it to your .env file.")
     return create_engine(POSTGRES_URL, pool_pre_ping=True)
 
 
-@lru_cache(maxsize=1)
 def load_data():
-    """Load reporting data from PostgreSQL, with an optional sample fallback."""
+    """Load reporting data from PostgreSQL, with an optional local fallback."""
     try:
-        engine = _get_engine()
+        engine = get_engine()
         with engine.connect() as conn:
             df = pd.read_sql(text(REPORTING_QUERY), conn)
         mode = "PostgreSQL live/refreshed data"
@@ -85,15 +84,35 @@ def load_data():
         df = pd.DataFrame(SAMPLE_DATA)
         mode = "Sample fallback data - configure PostgreSQL for final submission"
 
+    numeric_cols = [
+        "flight_operations", "on_time_arrivals", "on_time_pct", "arrival_delays",
+        "delayed_pct", "flight_cancelled", "cancelled_pct", "diverted_flights",
+        "avg_temperature_f", "total_precipitation_inches", "total_snowfall_inches",
+        "avg_wind_speed_mph", "severe_weather_days",
+    ]
+    for col in numeric_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    # The uploaded initial SQL uses placeholder weather rows. Treat missing totals
+    # as zero so the MVP remains readable until the ETL weather load is complete.
+    for col in ["total_precipitation_inches", "total_snowfall_inches", "severe_weather_days"]:
+        df[col] = df[col].fillna(0)
+
     df["month_label"] = df["month_name"].str.slice(0, 3) + " " + df["year_number"].astype(str)
     df = df.sort_values(["year_number", "month_number"])
-    return df, mode
+    refreshed_at = datetime.now().strftime("%Y-%m-%d %I:%M:%S %p")
+    return df, mode, refreshed_at
 
 
 def metric_card(label, value, helper=""):
     return dbc.Col(
         html.Div(
-            [html.Div(label, className="kpi-label"), html.Div(value, className="kpi-value"), html.Div(helper, className="kpi-label")],
+            [
+                html.Div(label, className="kpi-label"),
+                html.Div(value, className="kpi-value"),
+                html.Div(helper, className="kpi-label"),
+            ],
             className="kpi-card",
         ),
         md=3,
@@ -101,14 +120,14 @@ def metric_card(label, value, helper=""):
 
 
 def format_number(value):
-    return f"{value:,.0f}"
+    return "N/A" if pd.isna(value) else f"{value:,.0f}"
 
 
 def format_pct(value):
-    return f"{value:.1f}%"
+    return "N/A" if pd.isna(value) else f"{value:.1f}%"
 
 
-df_initial, data_mode = load_data()
+df_initial, data_mode, refreshed_at = load_data()
 season_options = [{"label": "All Seasons", "value": "All"}] + [
     {"label": s, "value": s} for s in sorted(df_initial["season"].dropna().unique())
 ]
@@ -130,10 +149,10 @@ app.layout = dbc.Container(
                 [
                     html.H1(APP_TITLE, className="app-title"),
                     html.P(
-                        "Interactive MVP dashboard using CVG monthly flight performance joined to daily weather observations.",
+                        "Interactive MVP dashboard connected to the CVG PostgreSQL flight performance and weather schema.",
                         className="subtitle",
                     ),
-                    html.Div(f"Data source mode: {data_mode}", className="mode-banner panel"),
+                    html.Div(id="mode-banner", className="mode-banner panel"),
                 ]
             )
         ),
@@ -147,7 +166,7 @@ app.layout = dbc.Container(
                         ],
                         className="panel",
                     ),
-                    md=6,
+                    md=4,
                 ),
                 dbc.Col(
                     html.Div(
@@ -157,7 +176,18 @@ app.layout = dbc.Container(
                         ],
                         className="panel",
                     ),
-                    md=6,
+                    md=4,
+                ),
+                dbc.Col(
+                    html.Div(
+                        [
+                            html.Label("Refresh Database Data"),
+                            html.Br(),
+                            html.Button("Refresh", id="refresh-button", n_clicks=0, className="refresh-button"),
+                        ],
+                        className="panel",
+                    ),
+                    md=4,
                 ),
             ],
             className="mb-3",
@@ -213,6 +243,7 @@ app.layout = dbc.Container(
 
 
 @app.callback(
+    Output("mode-banner", "children"),
     Output("kpi-row", "children"),
     Output("trend-chart", "figure"),
     Output("disruption-bar", "figure"),
@@ -222,9 +253,10 @@ app.layout = dbc.Container(
     Output("data-table", "columns"),
     Input("season-filter", "value"),
     Input("metric-filter", "value"),
+    Input("refresh-button", "n_clicks"),
 )
-def update_dashboard(selected_season, selected_metric):
-    df, _ = load_data()
+def update_dashboard(selected_season, selected_metric, _refresh_clicks):
+    df, mode, refreshed_at = load_data()
     if selected_season != "All":
         df = df[df["season"] == selected_season]
 
@@ -237,7 +269,7 @@ def update_dashboard(selected_season, selected_metric):
         metric_card("Total Flight Operations", format_number(total_ops), "Selected period"),
         metric_card("Average On-Time Rate", format_pct(avg_on_time), "Higher is better"),
         metric_card("Total Arrival Delays", format_number(total_delays), "Delay count"),
-        metric_card("Severe Weather Days", format_number(severe_days), "Weather risk signal"),
+        metric_card("Severe Weather Days", format_number(severe_days), "From weather_daily"),
     ]
 
     metric_label = next(item["label"] for item in metric_options if item["value"] == selected_metric)
@@ -267,7 +299,7 @@ def update_dashboard(selected_season, selected_metric):
         y="delayed_pct",
         size="flight_operations",
         hover_name="month_label",
-        title="Weather vs. Delay Rate",
+        title="Precipitation vs. Delay Rate",
         labels={
             "total_precipitation_inches": "Total Precipitation (inches)",
             "delayed_pct": "Delayed %",
@@ -286,13 +318,14 @@ def update_dashboard(selected_season, selected_metric):
     weather_fig.update_layout(margin=dict(l=20, r=20, t=55, b=20))
 
     table_df = df[[
-        "month_name", "season", "flight_operations", "on_time_pct", "delayed_pct",
-        "flight_cancelled", "total_precipitation_inches", "avg_wind_speed_mph", "severe_weather_days"
+        "year_number", "month_name", "season", "flight_operations", "on_time_pct", "delayed_pct",
+        "flight_cancelled", "diverted_flights", "total_precipitation_inches", "avg_wind_speed_mph", "severe_weather_days"
     ]].copy()
     columns = [{"name": col.replace("_", " ").title(), "id": col} for col in table_df.columns]
+    banner = f"Data source mode: {mode} | Last refreshed: {refreshed_at}"
 
-    return kpis, trend_fig, disruption_fig, scatter_fig, weather_fig, table_df.to_dict("records"), columns
+    return banner, kpis, trend_fig, disruption_fig, scatter_fig, weather_fig, table_df.to_dict("records"), columns
 
 
 if __name__ == "__main__":
-    app.run_server(debug=True)
+    app.run(debug=True)

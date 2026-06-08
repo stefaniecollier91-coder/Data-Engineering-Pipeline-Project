@@ -1,0 +1,61 @@
+body {
+    background-color: #f6f8fb;
+    font-family: Arial, sans-serif;
+}
+
+.app-title {
+    color: #1f2d3d;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+}
+
+.subtitle {
+    color: #5f6b7a;
+    margin-bottom: 1.25rem;
+}
+
+.kpi-card {
+    background: white;
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+    height: 100%;
+}
+
+.kpi-label {
+    color: #64748b;
+    font-size: 0.9rem;
+    margin-bottom: 0.4rem;
+}
+
+.kpi-value {
+    color: #0f172a;
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+
+.panel {
+    background: white;
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+}
+
+.mode-banner {
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+}
+.refresh-button {
+    background: #1d4ed8;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 18px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.refresh-button:hover {
+    background: #1e40af;
+}
